@@ -7,10 +7,9 @@ import {
   repository,
   Where
 } from '@loopback/repository';
-import {
-  del, get, getModelSchemaRef, param, patch, post, put, requestBody, response
-} from '@loopback/rest';
-import {Persona} from '../models';
+import {del, get, getModelSchemaRef, HttpErrors, param, patch, post, put, requestBody, response} from '@loopback/rest';
+import {Llaves} from '../config/llaves';
+import {Credenciales, Persona} from '../models';
 import {PersonaRepository} from '../repositories';
 import {AutenticacionService} from '../services';
 const fetch = require("node-fetch");
@@ -22,6 +21,34 @@ export class PersonaController {
     @service(AutenticacionService)
     public servicioAutenticacion: AutenticacionService,
   ) { }
+
+  //VALIDACION DE CREDENCIALES DE USUARIOS
+  @post("/identificarPersona", {
+    responses: {
+      '200': {
+        descripcion: "Identificacion de usaurio"
+      }
+    }
+  })
+  async identificarPersona(
+    @requestBody() credenciales: Credenciales
+  ) {
+    let p = await this.servicioAutenticacion.identificarpersona(credenciales.usaurio, credenciales.clave);
+    if (p) {
+      let token = this.servicioAutenticacion.generarTokenJWT(p);
+      return {
+        daatos: {
+          nombre: p.nombres,
+          correo: p.correo,
+          id: p.id
+        },
+        tk: token
+      }
+    } else {
+      throw new HttpErrors[401]("Datos inválidos");
+    }
+  }
+
 
   @post('/personas')
   @response(200, {
@@ -52,7 +79,7 @@ export class PersonaController {
     let asunto = 'Registro en la plataforma';
     let contenido = `Hola ${persona.nombres}, su nombre de usuario es: ${persona.correo} y su contraseña es: ${clave}`;
 
-    fetch(`http://127.0.0.1:5000/sendEmail?correoDestino=${destino}&asunto=${asunto}&contenido=${contenido}`)
+    fetch(`${Llaves.urlServicioNotificaciones} / sendEmail ? correoDestino = ${destino}& asunto=${asunto}& contenido=${contenido} `)
       .then((data: any) => {
         console.log(data);
       })
